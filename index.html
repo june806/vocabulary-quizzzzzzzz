@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>單字口說測驗｜抽籤計時器</title>
+<style>
+:root{
+  --bg:#f5f3ee; --ink:#1e293b; --muted:#64748b; --line:#e2ddd2; --card:#fff;
+  --accent:#0f766e; --accent-soft:#ccfbf1; --ok:#16a34a; --ok-soft:#dcfce7;
+  --bad:#dc2626; --bad-soft:#fee2e2; --gold:#f59e0b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+button{font-family:inherit;cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.45}
+
+header{display:flex;align-items:center;gap:14px;padding:12px 22px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:19px;margin:0;margin-right:auto}
+.seat{display:flex;align-items:center;gap:6px;font-size:16px}
+.seat input{width:70px;font-size:20px;font-weight:700;text-align:center;padding:4px 6px;border:1px solid var(--line);border-radius:8px}
+.scorebar{font-size:15px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:6px 14px}
+.scorebar b{font-size:22px;color:var(--accent)}
+.btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;border-radius:9px;font-size:15px}
+.btn:hover:not(:disabled){background:#f1f5f9}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover:not(:disabled){filter:brightness(.92)}
+.btn.green{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.ok{background:var(--ok-soft);border-color:var(--ok);color:var(--ok);font-weight:700}
+.btn.bad{background:var(--bad-soft);border-color:var(--bad);color:var(--bad);font-weight:700}
+
+main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;padding:18px 22px 22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px}
+
+.stage{padding:22px 26px;display:flex;flex-direction:column;min-height:580px}
+.stage-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.progress{font-weight:700;font-size:17px}
+.bar{height:8px;background:#eef2f7;border-radius:6px;overflow:hidden;margin-top:10px}
+.bar div{height:100%;background:var(--accent);width:0;transition:width .25s}
+.item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:10px 0}
+.word{font-size:clamp(52px,8vw,110px);font-weight:800;line-height:1.15;word-break:break-word}
+.word.placeholder{font-size:26px;font-weight:500;color:var(--muted)}
+.zh{margin-top:10px;font-size:26px;color:var(--muted);min-height:36px}
+.mark{margin-top:8px;font-size:22px;font-weight:800;min-height:30px}
+.mark.ok{color:var(--ok)} .mark.bad{color:var(--bad)}
+
+.timer-row{display:flex;align-items:center;justify-content:center;gap:34px;margin:4px 0 16px}
+.ring{position:relative;width:150px;height:150px}
+.ring svg{transform:rotate(-90deg)}
+.ring .bg{stroke:#eef2f7}
+.ring .fg{stroke:var(--accent);transition:stroke .2s}
+.ring.warn .fg{stroke:var(--bad)}
+.ring .num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:56px;font-weight:800;font-variant-numeric:tabular-nums}
+.ring.warn .num{color:var(--bad)}
+.status{display:flex;flex-direction:column;gap:10px;min-width:160px}
+.status .label{font-size:24px;font-weight:800}
+.status .label.running{color:var(--accent)} .status .label.timeup{color:var(--bad)} .status .label.done{color:var(--ok)}
+.chances{font-size:15px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:15px;height:15px;border-radius:50%;border:2px solid var(--accent);display:inline-block}
+.dot.used{background:var(--accent)}
+
+.controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.controls .btn{font-size:18px;padding:11px 20px}
+.controls .btn.big{min-width:210px;font-size:19px}
+.keys{text-align:center;color:var(--muted);font-size:13px;margin-top:12px;line-height:1.9}
+kbd{background:#f1f5f9;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 6px;font-family:inherit}
+
+.side{display:flex;flex-direction:column;gap:18px}
+.panel{padding:16px 18px}
+.panel h2{font-size:17px;margin:0 0 12px;display:flex;justify-content:space-between;align-items:baseline}
+.panel h2 span{font-weight:400;font-size:13px;color:var(--muted)}
+.count-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.count-row input[type=range]{flex:1;accent-color:var(--accent)}
+.count-num{font-size:30px;font-weight:800;color:var(--accent);min-width:52px;text-align:center}
+.quick{display:flex;gap:6px;margin-bottom:12px}
+.quick .btn{flex:1;padding:6px}
+.draw-btn{width:100%;font-size:20px;padding:13px}
+.opts{display:flex;flex-direction:column;gap:7px;margin-top:12px;font-size:14px;color:var(--ink)}
+.opts label{display:flex;align-items:center;gap:7px;cursor:pointer}
+.opts input{accent-color:var(--accent);width:16px;height:16px}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.chip{position:relative;border:1px solid var(--line);border-radius:8px;padding:8px 6px 8px 24px;font-size:14px;cursor:pointer;background:#fff;min-height:38px;word-break:break-word}
+.chip .no{position:absolute;left:6px;top:8px;font-size:11px;color:var(--muted)}
+.chip.ok{background:var(--ok-soft);border-color:var(--ok)}
+.chip.bad{background:var(--bad-soft);border-color:var(--bad)}
+.chip.cur{outline:3px solid var(--accent);outline-offset:-1px;font-weight:700}
+.chip.flash{background:#fde68a;border-color:var(--gold)}
+.empty{color:var(--muted);text-align:center;padding:14px 0;margin:0}
+.wrongs{margin-top:12px;font-size:14px;color:var(--bad);min-height:20px}
+
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+.modal.open{display:flex}
+.modal .box{background:#fff;border-radius:16px;max-width:860px;width:100%;max-height:90vh;overflow:auto;padding:22px 24px}
+.modal h3{margin:0 0 8px;font-size:20px}
+.help{font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.7}
+.help code{background:#f1f5f9;border-radius:4px;padding:1px 5px}
+textarea{width:100%;min-height:300px;font-family:inherit;font-size:15px;padding:10px;border:1px solid var(--line);border-radius:8px;resize:vertical;color:var(--ink)}
+.nums{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px}
+.nums label{font-size:14px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nums input[type=number]{width:64px;font-size:16px;padding:4px 6px;border:1px solid var(--line);border-radius:6px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap;align-items:center}
+.modal-actions .info{margin-right:auto;font-size:14px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:left;vertical-align:top}
+th{background:#f8fafc}
+td.num,th.num{text-align:center}
+.del{border:none;background:none;color:var(--bad);font-size:16px}
+
+@media (max-width:900px){ main{grid-template-columns:1fr} .grid{grid-template-columns:repeat(3,1fr)} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔤 單字口說測驗　抽籤計時器</h1>
+  <div class="seat">座號 <input id="seat" type="text" value="1"></div>
+  <div class="scorebar">答對 <b id="sOk">0</b> / <span id="sN">0</span>　<span id="sPct"></span></div>
+  <button class="btn green" id="btnRecord">✔ 記錄成績・下一位</button>
+  <button class="btn" id="btnRecords">📋 成績紀錄 (<span id="recCount">0</span>)</button>
+  <button class="btn" id="btnSettings">⚙ 單字題庫</button>
+</header>
+
+<main>
+  <section class="card stage">
+    <div class="stage-top">
+      <span class="progress" id="progress">尚未抽籤</span>
+      <button class="btn" id="btnZh">顯示中文</button>
+    </div>
+    <div class="bar"><div id="barFill"></div></div>
+
+    <div class="item">
+      <div class="word placeholder" id="word">選好題數後按「抽籤」</div>
+      <div class="zh" id="zh"></div>
+      <div class="mark" id="mark"></div>
+    </div>
+
+    <div class="timer-row">
+      <div class="ring" id="ring">
+        <svg width="150" height="150" viewBox="0 0 150 150">
+          <circle class="bg" cx="75" cy="75" r="64" fill="none" stroke-width="11"/>
+          <circle class="fg" id="ringFg" cx="75" cy="75" r="64" fill="none" stroke-width="11" stroke-linecap="round"/>
+        </svg>
+        <div class="num" id="ringNum">5</div>
+      </div>
+      <div class="status">
+        <div class="label" id="statusLabel">準備</div>
+        <div class="chances" id="chances"></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="btnPrev">◀</button>
+      <button class="btn bad" id="btnBad">✗ 答錯</button>
+      <button class="btn primary big" id="btnStart">▶ 開始計時</button>
+      <button class="btn ok" id="btnOk">✓ 答對</button>
+      <button class="btn" id="btnNext">▶</button>
+    </div>
+    <div class="keys">
+      <kbd>空白鍵</kbd> 開始／停止／第二次機會　<kbd>1</kbd> 答對　<kbd>0</kbd> 答錯　<kbd>←</kbd><kbd>→</kbd> 換題　<kbd>D</kbd> 抽籤
+    </div>
+  </section>
+
+  <aside class="side">
+    <section class="card panel">
+      <h2>這次要考幾個？<span id="bankInfo"></span></h2>
+      <div class="count-row">
+        <input type="range" id="countRange" min="10" max="20" value="10">
+        <span class="count-num" id="countNum">10</span>
+      </div>
+      <div class="quick">
+        <button class="btn" data-n="10">10 個</button>
+        <button class="btn" data-n="15">15 個</button>
+        <button class="btn" data-n="20">20 個</button>
+      </div>
+      <button class="btn primary draw-btn" id="btnDraw">🎲 抽籤</button>
+      <div class="opts">
+        <label><input type="checkbox" id="optAdvance" checked> 給分後自動跳下一個</label>
+        <label><input type="checkbox" id="optAutoStart"> 換到下一個時自動開始計時</label>
+        <label><input type="checkbox" id="optAvoid"> 盡量避開前一位學生抽過的單字</label>
+      </div>
+    </section>
+
+    <section class="card panel">
+      <h2>抽到的單字 <span>點一下可以跳到該題</span></h2>
+      <div id="drawn"></div>
+      <div class="wrongs" id="wrongs"></div>
+    </section>
+  </aside>
+</main>
+
+<!-- 題庫設定 -->
+<div class="modal" id="mSettings">
+  <div class="box">
+    <h3>⚙ 單字題庫</h3>
+    <p class="help">
+      一行一個單字，可以直接從 Word／Excel 整欄複製貼上。<br>
+      想加中文意思的話，用 <code>=</code> 或 Tab 隔開，例如 <code>police officer = 警察</code>，中文平常會藏起來，按「顯示中文」才出現。
+    </p>
+    <textarea id="tBank"></textarea>
+    <div class="nums">
+      <label>每個單字秒數 <input type="number" id="nSec" min="1" max="120"></label>
+      <label>作答機會 <input type="number" id="nCh" min="1" max="5"> 次</label>
+      <label><input type="checkbox" id="nSound"> 聲音提示</label>
+    </div>
+    <div class="modal-actions">
+      <span class="info" id="bankCount"></span>
+      <button class="btn" id="btnDefault">還原預設題庫</button>
+      <button class="btn" data-close>取消</button>
+      <button class="btn primary" id="btnSave">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 成績紀錄 -->
+<div class="modal" id="mRecords">
+  <div class="box">
+    <h3>📋 成績紀錄</h3>
+    <div id="recTable"></div>
+    <div class="modal-actions">
+      <button class="btn" id="btnClearRec" style="color:var(--bad)">清除全部</button>
+      <button class="btn" id="btnCsv">⬇ 下載 CSV（Excel 可開）</button>
+      <button class="btn primary" data-close>關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DEFAULT_BANK = [
+  "chicken","train","police officer","waitress","forest","finally","duck","teenager",
+  "important","interesting","famous","goose","map","reach","shout","popular",
+  "guitar","secretary","quarter","proud"
+];
+const DEFAULTS = { bank: DEFAULT_BANK.join('\n'), seconds: 5, chances: 2, sound: true, count: 10,
+                   advance: true, autoStart: false, avoid: false };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function store(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function restore(k){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; }catch(e){ return null; } }
+
+let cfg = Object.assign({}, DEFAULTS, restore('vocabCfg') || {});
+let records = restore('vocabRecords') || [];
+let bank = parseBank(cfg.bank);
+let drawn = [], curIdx = -1, showZh = false, drawing = false;
+let lastDrawn = restore('vocabLast') || [];
+
+function parseBank(text){
+  const seen = new Set(), out = [];
+  text.split('\n').forEach(line => {
+    line = line.trim(); if(!line) return;
+    const m = line.split(/\t|\s*=\s*|\s*｜\s*|\s*\|\s*/);
+    const en = (m[0] || '').trim(), zh = m.slice(1).join(' ').trim();
+    if(en && !seen.has(en.toLowerCase())){ seen.add(en.toLowerCase()); out.push({ en, zh }); }
+  });
+  return out;
+}
+function shuffle(a){ for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+/* ---------- 聲音 ---------- */
+let ac = null;
+function audioOn(){ try{ ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if(ac.state === 'suspended') ac.resume(); }catch(e){} }
+function tone(f, d, v = 0.2, delay = 0){
+  if(!cfg.sound || !ac) return;
+  const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.value = f; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
+  o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d);
+}
+
+/* ---------- 計時 ---------- */
+const C = 2 * Math.PI * 64;
+const T = { status:'idle', start:0, raf:0, last:null, rem:0 };
+$('#ringFg').style.strokeDasharray = C;
+function drawRing(rem){
+  T.rem = rem;
+  $('#ringFg').style.strokeDashoffset = C * (1 - rem / (cfg.seconds * 1000));
+  $('#ringNum').textContent = Math.ceil(rem / 1000);
+  $('#ring').classList.toggle('warn', (T.status === 'running' && rem <= 2000) || T.status === 'timeup');
+}
+function resetTimer(){ cancelAnimationFrame(T.raf); T.status = 'idle'; drawRing(cfg.seconds * 1000); }
+function stopTimer(){ cancelAnimationFrame(T.raf); if(T.status === 'running'){ T.status = 'done'; drawRing(T.rem); } }
+function startTimer(){
+  const d = drawn[curIdx]; if(!d || d.used >= cfg.chances) return;
+  audioOn(); d.used++;
+  T.status = 'running'; T.start = performance.now(); T.last = cfg.seconds;
+  tone(660, 0.1, 0.15); loop(); render();
+}
+function loop(){
+  const rem = Math.max(0, cfg.seconds * 1000 - (performance.now() - T.start));
+  const s = Math.ceil(rem / 1000);
+  if(s !== T.last){ T.last = s; if(s > 0 && s <= 3) tone(520, 0.07, 0.12); }
+  drawRing(rem);
+  if(rem <= 0){ T.status = 'timeup'; tone(880, 0.3, 0.25); tone(880, 0.45, 0.25, 0.35); render(); return; }
+  T.raf = requestAnimationFrame(loop);
+}
+
+/* ---------- 抽籤 ---------- */
+function getCount(){ return Math.min(+$('#countRange').value, bank.length); }
+function draw(){
+  if(drawing) return;
+  if(!bank.length){ alert('題庫是空的，請先按「單字題庫」輸入單字。'); return; }
+  if(drawn.some(d => d.used > 0 || d.score !== null) && !confirm('重新抽籤會清掉這位學生目前的作答紀錄，確定嗎？')) return;
+  stopTimer(); resetTimer(); audioOn();
+  const n = getCount();
+  let order = shuffle([...bank.keys()]);
+  if($('#optAvoid').checked && lastDrawn.length){
+    const used = new Set(lastDrawn.map(s => s.toLowerCase()));
+    order = [...order.filter(i => !used.has(bank[i].en.toLowerCase())), ...order.filter(i => used.has(bank[i].en.toLowerCase()))];
+  }
+  const pick = order.slice(0, n);
+  drawing = true; $('#btnDraw').disabled = true;
+  drawn = pick.map(() => ({ en:'', zh:'', used:0, score:null })); curIdx = -1; render();
+  let k = 0;
+  const chips = () => [...document.querySelectorAll('#drawn .chip')];
+  const iv = setInterval(() => {
+    chips().forEach(c => { c.classList.add('flash'); c.querySelector('.w').textContent = bank[Math.floor(Math.random() * bank.length)].en; });
+    tone(300 + k * 20, 0.04, 0.07);
+    if(++k >= 14){
+      clearInterval(iv);
+      drawn = pick.map(i => ({ en:bank[i].en, zh:bank[i].zh, used:0, score:null }));
+      lastDrawn = drawn.map(d => d.en); store('vocabLast', lastDrawn);
+      curIdx = 0; drawing = false; $('#btnDraw').disabled = false;
+      tone(990, 0.22, 0.18); resetTimer(); render();
+    }
+  }, 80);
+}
+function select(i, autoStart = false){
+  if(drawing || i < 0 || i >= drawn.length) return;
+  stopTimer(); curIdx = i; resetTimer(); render();
+  if(autoStart) startTimer();
+}
+function score(v){
+  const d = drawn[curIdx]; if(!d || drawing) return;
+  stopTimer(); d.score = v;
+  tone(v ? 1046 : 220, 0.15, 0.15);
+  if($('#optAdvance').checked && curIdx < drawn.length - 1){
+    setTimeout(() => select(curIdx + 1, $('#optAutoStart').checked), 350);
+  }
+  render();
+}
+
+/* ---------- 畫面 ---------- */
+function render(){
+  const d = drawn[curIdx];
+  const okCount = drawn.filter(x => x.score === 1).length;
+  const scored = drawn.filter(x => x.score !== null).length;
+
+  $('#sOk').textContent = okCount; $('#sN').textContent = drawn.length;
+  $('#sPct').textContent = drawn.length ? `（${Math.round(okCount / drawn.length * 100)}%）` : '';
+  $('#recCount').textContent = records.length;
+  $('#bankInfo').textContent = `題庫共 ${bank.length} 個`;
+  $('#btnDraw').textContent = drawn.length && !drawing ? `🎲 重新抽 ${getCount()} 個` : `🎲 抽 ${getCount()} 個單字`;
+  $('#barFill').style.width = drawn.length ? (scored / drawn.length * 100) + '%' : '0';
+
+  $('#drawn').innerHTML = drawn.length
+    ? '<div class="grid">' + drawn.map((x, i) => {
+        const cls = [x.score === 1 ? 'ok' : x.score === 0 ? 'bad' : '', i === curIdx ? 'cur' : ''].join(' ');
+        return `<div class="chip ${cls}" data-i="${i}"><span class="no">${i + 1}</span><span class="w">${esc(x.en)}</span></div>`;
+      }).join('') + '</div>'
+    : '<p class="empty">尚未抽籤</p>';
+  const wrong = drawn.filter(x => x.score === 0).map(x => x.en);
+  $('#wrongs').textContent = wrong.length ? '答錯：' + wrong.join('、') : '';
+
+  const w = $('#word');
+  if(!d){
+    w.className = 'word placeholder';
+    w.textContent = drawing ? '抽籤中…' : '選好題數後按「抽籤」';
+    $('#zh').textContent = ''; $('#mark').textContent = ''; $('#mark').className = 'mark';
+    $('#progress').textContent = drawing ? '抽籤中…' : '尚未抽籤';
+  }else{
+    w.className = 'word'; w.textContent = d.en;
+    $('#zh').textContent = showZh ? (d.zh || '（題庫沒有輸入中文）') : '';
+    $('#mark').textContent = d.score === 1 ? '✓ 答對' : d.score === 0 ? '✗ 答錯' : '';
+    $('#mark').className = 'mark ' + (d.score === 1 ? 'ok' : d.score === 0 ? 'bad' : '');
+    $('#progress').textContent = `第 ${curIdx + 1} / ${drawn.length} 個`;
+  }
+  $('#btnZh').textContent = showZh ? '隱藏中文' : '顯示中文';
+
+  const map = { idle:['準備',''], running:['作答中…','running'], timeup:['⏰ 時間到！','timeup'], done:['✔ 已停止','done'] };
+  $('#statusLabel').textContent = map[T.status][0]; $('#statusLabel').className = 'label ' + map[T.status][1];
+  $('#chances').innerHTML = d ? '作答機會 ' + Array.from({length:cfg.chances}, (_, i) => `<span class="dot ${i < d.used ? 'used' : ''}"></span>`).join('') : '';
+
+  const bs = $('#btnStart');
+  if(!d){ bs.disabled = true; bs.textContent = '▶ 開始計時'; }
+  else if(T.status === 'running'){ bs.disabled = false; bs.textContent = '■ 停止'; }
+  else if(d.used === 0){ bs.disabled = false; bs.textContent = `▶ 開始計時（${cfg.seconds} 秒）`; }
+  else if(d.used < cfg.chances){ bs.disabled = false; bs.textContent = `↻ 第 ${d.used + 1} 次機會`; }
+  else { bs.disabled = true; bs.textContent = '機會已用完'; }
+  $('#btnOk').disabled = $('#btnBad').disabled = !d;
+  $('#btnPrev').disabled = !d || curIdx <= 0;
+  $('#btnNext').disabled = !d || curIdx >= drawn.length - 1;
+}
+
+/* ---------- 題數 ---------- */
+function setCount(n){
+  const max = Math.max(1, Math.min(20, bank.length));
+  const min = Math.min(10, max);
+  const r = $('#countRange'); r.min = min; r.max = max;
+  r.value = Math.max(min, Math.min(max, n));
+  $('#countNum').textContent = r.value;
+  document.querySelectorAll('.quick .btn').forEach(b => b.disabled = +b.dataset.n > bank.length);
+  cfg.count = +r.value; store('vocabCfg', cfg);
+  if(!drawing) render();
+}
+
+/* ---------- 紀錄 ---------- */
+function recordAndNext(){
+  if(!drawn.length){ alert('這位學生還沒有抽籤喔。'); return; }
+  const un = drawn.filter(d => d.score === null).length;
+  if(un && !confirm(`還有 ${un} 個單字沒有給分（會算答錯），確定要記錄嗎？`)) return;
+  const seat = $('#seat').value.trim();
+  const ok = drawn.filter(d => d.score === 1).length;
+  records.push({
+    seat, n:drawn.length, ok, pct:Math.round(ok / drawn.length * 100),
+    wrong: drawn.filter(d => d.score !== 1).map(d => d.en).join('、'),
+    words: drawn.map(d => d.en).join('、'),
+    time: new Date().toLocaleString('zh-TW', { hour12:false })
+  });
+  store('vocabRecords', records);
+  if(/^\d+$/.test(seat)) $('#seat').value = String(+seat + 1);
+  stopTimer(); drawn = []; curIdx = -1; resetTimer(); render();
+}
+function renderRecords(){
+  $('#recTable').innerHTML = records.length ? `<table>
+    <tr><th>座號</th><th class="num">答對</th><th class="num">題數</th><th class="num">%</th><th>答錯／未答的單字</th><th>時間</th><th></th></tr>
+    ${records.map((r, i) => `<tr><td><b>${esc(r.seat)}</b></td><td class="num"><b>${r.ok}</b></td><td class="num">${r.n}</td>
+      <td class="num">${r.pct}</td><td style="color:var(--bad)">${esc(r.wrong) || '—'}</td>
+      <td style="color:var(--muted);font-size:12px">${esc(r.time)}</td>
+      <td><button class="del" data-del="${i}">✕</button></td></tr>`).join('')}
+  </table>` : '<p class="empty">目前沒有紀錄</p>';
+}
+function downloadCsv(){
+  const q = v => `"${String(v).replace(/"/g, '""')}"`;
+  const rows = [['座號','答對','題數','百分比','答錯或未答','抽到的單字','時間'],
+    ...records.map(r => [r.seat, r.ok, r.n, r.pct, r.wrong, r.words, r.time])].map(r => r.map(q).join(','));
+  const blob = new Blob(['﻿' + rows.join('\r\n')], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = '單字口說測驗成績.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ---------- 題庫設定 ---------- */
+function openSettings(text = cfg.bank){
+  $('#tBank').value = text; $('#nSec').value = cfg.seconds; $('#nCh').value = cfg.chances; $('#nSound').checked = cfg.sound;
+  updateBankCount(); $('#mSettings').classList.add('open');
+}
+function updateBankCount(){ $('#bankCount').textContent = `目前 ${parseBank($('#tBank').value).length} 個單字`; }
+function saveSettings(){
+  const b = parseBank($('#tBank').value);
+  if(!b.length){ alert('至少要輸入一個單字。'); return; }
+  cfg.bank = $('#tBank').value;
+  cfg.seconds = Math.max(1, parseInt($('#nSec').value) || 5);
+  cfg.chances = Math.max(1, parseInt($('#nCh').value) || 2);
+  cfg.sound = $('#nSound').checked;
+  bank = b; store('vocabCfg', cfg);
+  stopTimer(); drawn = []; curIdx = -1; resetTimer();
+  $('#mSettings').classList.remove('open'); setCount(cfg.count);
+}
+
+/* ---------- 事件 ---------- */
+$('#countRange').oninput = e => setCount(+e.target.value);
+document.querySelectorAll('.quick .btn').forEach(b => b.onclick = () => setCount(+b.dataset.n));
+['optAdvance','optAutoStart','optAvoid'].forEach(id => {
+  const key = { optAdvance:'advance', optAutoStart:'autoStart', optAvoid:'avoid' }[id];
+  $('#' + id).checked = cfg[key];
+  $('#' + id).onchange = e => { cfg[key] = e.target.checked; store('vocabCfg', cfg); };
+});
+$('#btnDraw').onclick = draw;
+$('#btnStart').onclick = () => T.status === 'running' ? (stopTimer(), render()) : startTimer();
+$('#btnOk').onclick = () => score(1);
+$('#btnBad').onclick = () => score(0);
+$('#btnPrev').onclick = () => select(curIdx - 1);
+$('#btnNext').onclick = () => select(curIdx + 1);
+$('#btnZh').onclick = () => { showZh = !showZh; render(); };
+$('#drawn').onclick = e => { const c = e.target.closest('.chip'); if(c) select(+c.dataset.i); };
+$('#btnRecord').onclick = recordAndNext;
+$('#btnRecords').onclick = () => { renderRecords(); $('#mRecords').classList.add('open'); };
+$('#recTable').onclick = e => {
+  const b = e.target.closest('[data-del]'); if(!b) return;
+  if(confirm('刪除這筆紀錄？')){ records.splice(+b.dataset.del, 1); store('vocabRecords', records); renderRecords(); render(); }
+};
+$('#btnCsv').onclick = () => records.length ? downloadCsv() : alert('目前沒有紀錄');
+$('#btnClearRec').onclick = () => { if(records.length && confirm('確定清除全部成績紀錄？')){ records = []; store('vocabRecords', records); renderRecords(); render(); } };
+$('#btnSettings').onclick = () => openSettings();
+$('#btnDefault').onclick = () => { $('#tBank').value = DEFAULT_BANK.join('\n'); updateBankCount(); };
+$('#tBank').oninput = updateBankCount;
+$('#btnSave').onclick = saveSettings;
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.closest('.modal').classList.remove('open'));
+document.querySelectorAll('.modal').forEach(m => m.onclick = e => { if(e.target === m) m.classList.remove('open'); });
+
+document.addEventListener('keydown', e => {
+  if(document.querySelector('.modal.open') || e.target.matches('input[type=text],input[type=number],textarea')) return;
+  if(e.target.matches('input')) e.target.blur();
+  if(e.code === 'Space'){ e.preventDefault(); if(!$('#btnStart').disabled) $('#btnStart').click(); }
+  else if(e.key === 'ArrowRight') select(curIdx + 1);
+  else if(e.key === 'ArrowLeft') select(curIdx - 1);
+  else if(e.key === '1') score(1);
+  else if(e.key === '0') score(0);
+  else if(e.key === 'd' || e.key === 'D') draw();
+});
+
+resetTimer(); setCount(cfg.count);
+</script>
+</body>
+</html>
